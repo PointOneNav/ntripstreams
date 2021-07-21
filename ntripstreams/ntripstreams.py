@@ -152,7 +152,7 @@ class NtripStream:
             if not endOfHeader:
                 if "Transfer-Encoding: chunked".lower() in str.lower(line):
                     self.ntripStreamChunked = True
-                    logging.info(f"{self.ntripMountPoint}:Stream is chunked")
+                    logging.debug(f"{self.ntripMountPoint}:Stream is chunked")
                 self.ntripResponseHeader.append(line)
         for line in self.ntripResponseHeader:
             logging.debug(f"{self.ntripMountPoint}:TCP response: {line}")
@@ -182,11 +182,11 @@ class NtripStream:
 
     async def requestSourcetable(self, casterUrl: str):
         await self.openNtripConnection(casterUrl)
-        logging.info(f"Connection to {casterUrl} open. Ready to write.")
+        logging.debug(f"Connection to {casterUrl} open. Ready to write.")
         self.setRequestSourceTableHeader(self.casterUrl.geturl())
         self.ntripWriter.write(self.ntripRequestHeader)
         await self.ntripWriter.drain()
-        logging.info("Sourcetable request sent.")
+        logging.debug("Sourcetable request sent.")
         ntripSourcetable = []
         await self.getNtripResponseHeader()
         if self.ntripResponseStatusCode != "200":
@@ -205,7 +205,7 @@ class NtripStream:
             if line == "ENDSOURCETABLE":
                 ntripSourcetable.append(line)
                 self.ntripWriter.close()
-                logging.info("Sourcetabel received.")
+                logging.debug("Sourcetabel received.")
                 break
             else:
                 ntripSourcetable.append(line)
@@ -222,7 +222,7 @@ class NtripStream:
         self.ntripVersion = ntripVersion
         await self.openNtripConnection(casterUrl)
         self.ntripMountPoint = mountPoint
-        logging.info(
+        logging.debug(
             f"{self.ntripMountPoint}:Connection to {casterUrl} open. " "Ready to write."
         )
         self.setRequestServerHeader(
@@ -230,7 +230,7 @@ class NtripStream:
         )
         self.ntripWriter.write(self.ntripRequestHeader)
         await self.ntripWriter.drain()
-        logging.info(f"{self.ntripMountPoint}:Request server header sent.")
+        logging.debug(f"{self.ntripMountPoint}:Request server header sent.")
         await self.getNtripResponseHeader()
         logging.debug(self.ntripResponseHeader)
         self.ntripResponseStatusOk()
@@ -244,7 +244,7 @@ class NtripStream:
     ):
         await self.openNtripConnection(casterUrl)
         self.ntripMountPoint = mountPoint
-        logging.info(
+        logging.debug(
             f"{self.ntripMountPoint}:Connection to {casterUrl} open. " "Ready to write."
         )
         self.setRequestStreamHeader(
@@ -252,7 +252,7 @@ class NtripStream:
         )
         self.ntripWriter.write(self.ntripRequestHeader)
         await self.ntripWriter.drain()
-        logging.info(f"{self.ntripMountPoint}:Request stream header sent.")
+        logging.debug(f"{self.ntripMountPoint}:Request stream header sent.")
         await self.getNtripResponseHeader()
         self.ntripResponseStatusOk()
 

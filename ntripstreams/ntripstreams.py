@@ -263,22 +263,15 @@ class NtripStream:
         if self.ntripStreamChunked:
             # Read the chunk length.
             rawLine = await self.ntripReader.readuntil(b"\r\n")
-            expected_length = int(rawLine[:-2].decode("ISO-8859-1"), 16)
+            chunk_length = int(rawLine[:-2].decode("ISO-8859-1"), 16)
 
-            # Now read the contents.
-            rawLine = await self.ntripReader.readuntil(b"\r\n")
+            # Now read the contents. Chunks all terminate with a \r\n, but it's not sufficient to do a readuntil() since
+            # \r\n could appear legitimately within the RTCM data stream.
+            rawLine = await self.ntripReader.readexactly(chunk_length + 2)
             data = rawLine[:-2]
 
-            self.logger.debug(f"Chunk {len(data)} bytes (expected {expected_length} bytes).")
-            if len(data) != expected_length:
-                self.logger.error(
-                    f"{self.ntripMountPoint}:Chunk incomplete "
-                    f"(got {len(data)} bytes, expected {expected_length} bytes). "
-                    "Closing connection!"
-                )
-                raise IOError("Chunk incomplete ") from None
-            else:
-                return data
+            self.logger.debug(f"Chunk {len(data)} bytes.")
+            return data
         # Otherwise, perform a single read up to the specified max length.
         else:
             data = await self.ntripReader.read(max_length)

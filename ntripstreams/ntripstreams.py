@@ -17,6 +17,8 @@ from ntripstreams.crc import crc24q
 
 
 class NtripStream:
+    logger = logging.getLogger('ntripstreams')
+
     def __init__(self):
         self.__CLIENTVERSION = __version__
         self.__CLIENTNAME = "Bedrock Solutions NtripClient/" + f"{self.__CLIENTVERSION}"
@@ -152,10 +154,10 @@ class NtripStream:
             if not endOfHeader:
                 if "Transfer-Encoding: chunked".lower() in str.lower(line):
                     self.ntripStreamChunked = True
-                    logging.debug(f"{self.ntripMountPoint}:Stream is chunked")
+                    self.logger.debug(f"{self.ntripMountPoint}:Stream is chunked")
                 self.ntripResponseHeader.append(line)
         for line in self.ntripResponseHeader:
-            logging.debug(f"{self.ntripMountPoint}:TCP response: {line}")
+            self.logger.debug(f"{self.ntripMountPoint}:TCP response: {line}")
         statusResponse = self.ntripResponseHeader[0].split(" ")
         if len(statusResponse) > 1:
             self.ntripResponseStatusCode = statusResponse[1]
@@ -168,12 +170,12 @@ class NtripStream:
             self.rtcmFrameAligned = False
             return True
         else:
-            logging.error(
+            self.logger.error(
                 f"{self.ntripMountPoint}:Response error "
                 f"{self.ntripResponseStatusCode}!"
             )
             for line in self.ntripResponseHeader:
-                logging.error(f"{self.ntripMountPoint}:TCP response: {line}")
+                self.logger.error(f"{self.ntripMountPoint}:TCP response: {line}")
             raise ConnectionRefusedError(
                 f"{self.ntripMountPoint}:" f"{self.ntripResponseHeader[0]}"
             ) from None
@@ -182,17 +184,17 @@ class NtripStream:
 
     async def requestSourcetable(self, casterUrl: str):
         await self.openNtripConnection(casterUrl)
-        logging.debug(f"Connection to {casterUrl} open. Ready to write.")
+        self.logger.debug(f"Connection to {casterUrl} open. Ready to write.")
         self.setRequestSourceTableHeader(self.casterUrl.geturl())
         self.ntripWriter.write(self.ntripRequestHeader)
         await self.ntripWriter.drain()
-        logging.debug("Sourcetable request sent.")
+        self.logger.debug("Sourcetable request sent.")
         ntripSourcetable = []
         await self.getNtripResponseHeader()
         if self.ntripResponseStatusCode != "200":
-            logging.error(f"Response error {self.ntripResponseStatusCode}!")
+            self.logger.error(f"Response error {self.ntripResponseStatusCode}!")
             for line in self.ntripResponseHeader:
-                logging.error(f"TCP response: {line}")
+                self.logger.error(f"TCP response: {line}")
             self.ntripWriter.close()
             raise ConnectionRefusedError(
                 f"{self.casterUrl.geturl()}:" f"{self.ntripResponseHeader[0]}"
@@ -205,7 +207,7 @@ class NtripStream:
             if line == "ENDSOURCETABLE":
                 ntripSourcetable.append(line)
                 self.ntripWriter.close()
-                logging.debug("Sourcetabel received.")
+                self.logger.debug("Sourcetabel received.")
                 break
             else:
                 ntripSourcetable.append(line)
@@ -222,7 +224,7 @@ class NtripStream:
         self.ntripVersion = ntripVersion
         await self.openNtripConnection(casterUrl)
         self.ntripMountPoint = mountPoint
-        logging.debug(
+        self.logger.debug(
             f"{self.ntripMountPoint}:Connection to {casterUrl} open. " "Ready to write."
         )
         self.setRequestServerHeader(
@@ -230,9 +232,9 @@ class NtripStream:
         )
         self.ntripWriter.write(self.ntripRequestHeader)
         await self.ntripWriter.drain()
-        logging.debug(f"{self.ntripMountPoint}:Request server header sent.")
+        self.logger.debug(f"{self.ntripMountPoint}:Request server header sent.")
         await self.getNtripResponseHeader()
-        logging.debug(self.ntripResponseHeader)
+        self.logger.debug(self.ntripResponseHeader)
         self.ntripResponseStatusOk()
 
     async def sendRtcmFrame(self, rtcmFrame):
@@ -244,7 +246,7 @@ class NtripStream:
     ):
         await self.openNtripConnection(casterUrl)
         self.ntripMountPoint = mountPoint
-        logging.debug(
+        self.logger.debug(
             f"{self.ntripMountPoint}:Connection to {casterUrl} open. " "Ready to write."
         )
         self.setRequestStreamHeader(
@@ -252,7 +254,7 @@ class NtripStream:
         )
         self.ntripWriter.write(self.ntripRequestHeader)
         await self.ntripWriter.drain()
-        logging.debug(f"{self.ntripMountPoint}:Request stream header sent.")
+        self.logger.debug(f"{self.ntripMountPoint}:Request stream header sent.")
         await self.getNtripResponseHeader()
         self.ntripResponseStatusOk()
 
@@ -268,9 +270,9 @@ class NtripStream:
             timeStamp = time()
             receivedBytes = BitStream(rawLine[:-2])
             if self.ntripStreamChunked:
-                logging.debug(f"Chunk {receivedBytes.length}:{length * 8}. ")
+                self.logger.debug(f"Chunk {receivedBytes.length}:{length * 8}. ")
             if self.ntripStreamChunked and receivedBytes.length != length * 8:
-                logging.error(
+                self.logger.error(
                     f"{self.ntripMountPoint}:Chunk incomplete "
                     f"{receivedBytes.length}:{length * 8}. "
                     "Closing connection! "
@@ -303,7 +305,7 @@ class NtripStream:
                     else:
                         self.rtcmFrameAligned = False
                         self.rtcmFrameBuffer = self.rtcmFrameBuffer[8:]
-                        logging.warning(
+                        self.logger.warning(
                             f"{self.ntripMountPoint}:CRC mismatch "
                             f"{hex(calcCrc)} != {rtcmFrame[-24:]}."
                             f" Realigning!"

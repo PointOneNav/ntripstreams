@@ -258,27 +258,43 @@ class NtripStream:
         await self.getNtripResponseHeader()
         self.ntripResponseStatusOk()
 
+    async def getRawData(self, max_length=1024):
+        # If we're receiving chunked data, wait for one chunk.
+        if self.ntripStreamChunked:
+            # Read the chunk length.
+            rawLine = await self.ntripReader.readuntil(b"\r\n")
+            expected_length = int(rawLine[:-2].decode("ISO-8859-1"), 16)
+
+            # Now read the contents.
+            rawLine = await self.ntripReader.readuntil(b"\r\n")
+            data = rawLine[:-2]
+
+            self.logger.debug(f"Chunk {len(data)} bytes (expected {expected_length} bytes).")
+            if len(data) != expected_length:
+                self.logger.error(
+                    f"{self.ntripMountPoint}:Chunk incomplete "
+                    f"(got {len(data)} bytes, expected {expected_length} bytes). "
+                    "Closing connection!"
+                )
+                raise IOError("Chunk incomplete ") from None
+            else:
+                return data
+        # Otherwise, perform a single read up to the specified max length.
+        else:
+            data = await self.ntripReader.read(max_length)
+            self.logger.debug(f"Read {len(data) * 8} bits.")
+            return data
+
     async def getRtcmFrame(self):
         rtcm3FramePreample = Bits(bin="0b11010011")
         rtcm3FrameHeaderFormat = "bin:8, pad:6, uint:10"
         rtcmFrameComplete = False
         while not rtcmFrameComplete:
-            if self.ntripStreamChunked:
-                rawLine = await self.ntripReader.readuntil(b"\r\n")
-                length = int(rawLine[:-2].decode("ISO-8859-1"), 16)
-            rawLine = await self.ntripReader.readuntil(b"\r\n")
+            data = await self.getRawData()
             timeStamp = time()
-            receivedBytes = BitStream(rawLine[:-2])
-            if self.ntripStreamChunked:
-                self.logger.debug(f"Chunk {receivedBytes.length}:{length * 8}. ")
-            if self.ntripStreamChunked and receivedBytes.length != length * 8:
-                self.logger.error(
-                    f"{self.ntripMountPoint}:Chunk incomplete "
-                    f"{receivedBytes.length}:{length * 8}. "
-                    "Closing connection! "
-                )
-                raise IOError("Chunk incomplete ") from None
+            receivedBytes = BitStream(data)
             self.rtcmFrameBuffer += receivedBytes
+
             if not self.rtcmFrameAligned:
                 rtcmFramePos = self.rtcmFrameBuffer.find(
                     rtcm3FramePreample, bytealigned=True

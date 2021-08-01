@@ -51,6 +51,13 @@ class NtripStream:
                 self.casterUrl.hostname, self.casterUrl.port
             )
 
+    async def closeNtripConnection(self):
+        if self.ntripWriter is not None:
+            self.ntripWriter.close()
+            await self.ntripWriter.wait_closed()
+            self.ntripWriter = None
+            self.ntripReader = None
+
     def setRequestSourceTableHeader(self, casterUrl: str):
         self.casterUrl = urlsplit(casterUrl)
         timestamp = strftime("%a, %d %b %Y %H:%M:%S GMT", gmtime())

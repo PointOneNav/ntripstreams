@@ -18,6 +18,7 @@ from ntripstreams.crc import crc24q
 
 class NtripStream:
     logger = logging.getLogger('ntripstreams')
+    rx_logger = logging.getLogger('ntripstreams.receive')
 
     def __init__(self):
         self.__CLIENTVERSION = __version__
@@ -277,12 +278,12 @@ class NtripStream:
             rawLine = await self.ntripReader.readexactly(chunk_length + 2)
             data = rawLine[:-2]
 
-            self.logger.debug(f"Chunk {len(data)} bytes.")
+            self.rx_logger.debug(f"Chunk {len(data)} bytes.")
             return data
         # Otherwise, perform a single read up to the specified max length.
         else:
             data = await self.ntripReader.read(max_length)
-            self.logger.debug(f"Read {len(data) * 8} bits.")
+            self.rx_logger.debug(f"Read {len(data) * 8} bits.")
             return data
 
     async def getRtcmFrame(self):

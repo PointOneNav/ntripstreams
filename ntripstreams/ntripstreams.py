@@ -250,8 +250,14 @@ class NtripStream:
         await self.ntripWriter.drain()
 
     async def requestNtripStream(
-        self, casterUrl: str, mountPoint: str, user: str = None, passwd: str = None
+        self,
+        casterUrl: str,
+        mountPoint: str,
+        user: str = None,
+        passwd: str = None,
+        ntripVersion: int = 2,
     ):
+        self.ntripVersion = ntripVersion
         await self.openNtripConnection(casterUrl)
         self.ntripMountPoint = mountPoint
         self.logger.debug(

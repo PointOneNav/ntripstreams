@@ -242,7 +242,6 @@ class NtripStream:
         await self.ntripWriter.drain()
         self.logger.debug(f"{self.ntripMountPoint}:Request server header sent.")
         await self.getNtripResponseHeader()
-        self.logger.debug(self.ntripResponseHeader)
         self.ntripResponseStatusOk()
 
     async def sendRtcmFrame(self, rtcmFrame):

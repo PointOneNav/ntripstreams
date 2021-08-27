@@ -149,7 +149,7 @@ class NtripStream:
     async def getNtripResponseHeader(self):
         self.ntripResponseHeader = []
         ntripResponseHeaderTimestamp = []
-        endOfHeader = False
+        self.logger.debug(f"{self.ntripMountPoint}: Waiting for response header.")
         while True:
             line = await self.ntripReader.readline()
             ntripResponseHeaderTimestamp.append(time())
@@ -157,15 +157,36 @@ class NtripStream:
                 break
             line = line.decode("ISO-8859-1").rstrip()
             if line == "":
-                endOfHeader = True
                 break
-            if not endOfHeader:
-                if "Transfer-Encoding: chunked".lower() in str.lower(line):
-                    self.ntripStreamChunked = True
-                    self.logger.debug(f"{self.ntripMountPoint}:Stream is chunked")
-                self.ntripResponseHeader.append(line)
-        for line in self.ntripResponseHeader:
-            self.logger.debug(f"{self.ntripMountPoint}:TCP response: {line}")
+
+            self.logger.debug(f"{self.ntripMountPoint}: {line}")
+
+            # NTRIP v1 responses start with any of the listed non-HTTP codes, followed immediately by data. They do not
+            # end with blank lines like normal HTTP responses.
+            isV1Response = line.startswith('ICY ') or line.startswith('ERROR ') or line.startswith('SOURCETABLE ')
+            if isV1Response and len(self.ntripResponseHeader) == 0:
+                if self.ntripVersion == 2:
+                    self.logger.error('%s response detected waiting for NTRIP v2 connection. Did you mean to specify '
+                                      'NTRIP v1?' % line.split(" ")[0])
+                    self.ntripResponseStatusCode = 0
+                    return
+            # If we're expecting an NTRIP v1 response and we get an HTTP repsonse, the server is likely expecting a v2
+            # connection.
+            elif self.ntripVersion == 1 and not isV1Response:
+                self.logger.error('%s response detected waiting for NTRIP v1 connection. Did you mean to specify '
+                                  'NTRIP v2?' % line.split(" ")[0])
+                self.ntripResponseStatusCode = 0
+                return
+            # If this is NTRIP v2 and the server indicates the stream will be chunked, remember that.
+            elif self.ntripVersion == 2 and "Transfer-Encoding: chunked".lower() in str.lower(line):
+                self.ntripStreamChunked = True
+                self.logger.debug(f"{self.ntripMountPoint}:Stream is chunked")
+
+            self.ntripResponseHeader.append(line)
+
+            if isV1Response:
+                break
+
         statusResponse = self.ntripResponseHeader[0].split(" ")
         if len(statusResponse) > 1:
             self.ntripResponseStatusCode = statusResponse[1]
@@ -176,7 +197,6 @@ class NtripStream:
         if self.ntripResponseStatusCode == "200":
             self.rtcmFramePreample = False
             self.rtcmFrameAligned = False
-            return True
         else:
             self.logger.error(
                 f"{self.ntripMountPoint}:Response error "
@@ -184,11 +204,15 @@ class NtripStream:
             )
             for line in self.ntripResponseHeader:
                 self.logger.error(f"{self.ntripMountPoint}:TCP response: {line}")
-            raise ConnectionRefusedError(
-                f"{self.ntripMountPoint}:" f"{self.ntripResponseHeader[0]}"
-            ) from None
             self.ntripWriter.close()
-            return False
+            if len(self.ntripResponseHeader) > 0:
+                raise ConnectionRefusedError(
+                    f"{self.ntripMountPoint}:" f"{self.ntripResponseHeader[0]}"
+                ) from None
+            else:
+                raise ConnectionRefusedError(
+                    f"{self.ntripMountPoint}: Received invalid response"
+                ) from None
 
     async def requestSourcetable(self, casterUrl: str):
         await self.openNtripConnection(casterUrl)
@@ -240,7 +264,8 @@ class NtripStream:
         )
         self.ntripWriter.write(self.ntripRequestHeader)
         await self.ntripWriter.drain()
-        self.logger.debug(f"{self.ntripMountPoint}:Request server header sent.")
+        self.logger.debug(f"{self.ntripMountPoint}:Request server header sent.\n%s" %
+                          self.ntripRequestHeader.decode("ISO-8859-1"))
         await self.getNtripResponseHeader()
         self.ntripResponseStatusOk()
 
@@ -267,7 +292,8 @@ class NtripStream:
         )
         self.ntripWriter.write(self.ntripRequestHeader)
         await self.ntripWriter.drain()
-        self.logger.debug(f"{self.ntripMountPoint}:Request stream header sent.")
+        self.logger.debug(f"{self.ntripMountPoint}:Request stream header sent.\n%s" %
+                          self.ntripRequestHeader.decode("ISO-8859-1"))
         await self.getNtripResponseHeader()
         self.ntripResponseStatusOk()
 

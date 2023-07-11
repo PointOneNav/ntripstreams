@@ -17,7 +17,7 @@ DESCRIPTION = "Library for Ntrip communication"
 URL = "https://github.com/stenseng/ntripstreams"
 EMAIL = "lars@stenseng.net"
 AUTHOR = "Lars Stenseng"
-REQUIRES_PYTHON = ">=3.7.0"
+REQUIRES_PYTHON = ">=3.6.0"
 VERSION = ""
 
 # What packages are required for this module to be executed?
@@ -122,6 +122,7 @@ setup(
         "Development Status :: 3 - Alpha",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
